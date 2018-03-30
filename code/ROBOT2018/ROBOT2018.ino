@@ -1,3 +1,4 @@
+
 /****************************************************
  * Authors: Mitch, Jose, Baldemar, Nicholas, Chris  *
  * Description: IEEE Robotics Code                  *
@@ -6,6 +7,7 @@
 #include <Wire.h>
 #include<String.h>
 #include <math.h>
+#include <functions.h>
 
 #define uchar unsigned char
 
@@ -43,7 +45,6 @@ bool interpretMode= false;
 
 int perpCount = 0;
 
-int sensors[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
 
 
 // Interrupt Service Routines  
@@ -57,26 +58,11 @@ void ISR_countB() {
     counter_B++;  // increment Motor B counter value
 }
 
-// Function to convert from centimeters to steps
-int CMtoSteps(float cm) {
-
-/*  int result;  // Final calculation result
-  float circumference = (wheeldiameter * 3.14); // Calculate wheel circumference in cm
-  float cm_step = circumference / stepcount;  // CM per Step  (cm/20steps)
-  
-  float f_result = cm / cm_step;  // Calculate result as a float
-  result = (int) f_result; // Convert to an integer (note this is NOT rounded)
-  
-  return result;  // End and return result
-  */
-    return 3.333 * cm;
 
 //*******************************************
 //   setup(): initialization routines       *
 //                                          *
 //*******************************************
-}
-
 void setup() {
     // Attach the Interrupts to their ISR's
     Serial.begin(9600);
@@ -116,48 +102,13 @@ String findBlacks(uchar *arr, int *sensors) {
     return s;
 }
 
-//FIND MINIMUM INDEX
-int minIndex(uchar *arr) {
-    int ind = -1;
-    int m = 255;
-    for (int i = 0; i < 15; i += 2) {
-        int a = arr[i];
-        if (a < m) {
-            m = a;
-            ind = i;
-        }
-    }
-    return ind;
-}
 
-//which sensor detect black
-bool isActive(int val) {
-    for (int i = 0; i < 8; i++) {
-        if (val == sensors[i])
-            return true;
-    }
-    return false;
-}
 
-void printSensorLog() {
-    /*  Serial.print("data[0]:");
-     Serial.println(data[0]);
-     Serial.print("data[2]:");
-     Serial.println(data[2]);
-     Serial.print("data[4]:");
-     Serial.println(data[4]);
-     Serial.print("data[6]:");
-     Serial.println(data[6]);
-     Serial.print("data[8]:");
-     Serial.println(data[8]);
-     Serial.print("data[10]:");
-     Serial.println(data[10]);
-     Serial.print("data[12]:");
-     Serial.println(data[12]);
-     Serial.print("data[14]:");
-     Serial.println(data[14]);*/
-}
 
+
+bool calcFwd(){
+  return isActive(6) || isActive(8) || isActive(10) || isActive(4);
+}
 // Function to Move Forward
 void move(int steps, float mspeed) {
     counter_A = 0;  //  reset counter A to zero
@@ -179,7 +130,7 @@ void move(int steps, float mspeed) {
     bool turned =true;
     while (steps > counter_A && steps > counter_B && turned) {
 
-        bool fwd=isActive(6) || isActive(8) || isActive(10) || isActive(4);
+        bool fwd=calcFwd();
         if (fwd) {
             lms = mspeed;
             rms = mspeed;
@@ -189,13 +140,13 @@ void move(int steps, float mspeed) {
         //correct itself moving  right
         if ((isActive(0) || isActive(2)  ) && !fwd) {
           turn(34);
-           fwd=isActive(6) || isActive(8) || isActive(10) || isActive(4);
+           fwd=calcFwd();
            turned=false;
           delay(1000);
         }
         if ((isActive(12) || isActive(14) ) &&  !fwd) {
           turn(-34);
-           fwd=isActive(6) || isActive(8) || isActive(10) || isActive(4);
+           fwd=calcFwd();
            turned=false;
           delay(1000);
         }
@@ -294,15 +245,7 @@ void square(bool left) {
       }
 }
 
-bool isLine(){
-  bool b=false;
-  for(int i=0;i<8;i++){
-    if(sensors[i] != -1){
-      b=true;
-    }
-  }
-  return b;
-}
+
 
 void loop() {
     for (int i = 0; i < 8; i++) {
