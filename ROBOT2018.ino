@@ -41,6 +41,8 @@ volatile int counter_B = 0;
 
 bool startMode = true;
 bool interpretMode = false;
+bool disableMotors = true;
+bool oob = false;
 
 int perpCount = 0;
 
@@ -74,13 +76,13 @@ void setup() {
     Serial.begin(9600);  // start serial for output
     t = 0;
 
-
+    delay(1000);
 }
 
 //FIND 
 String findBlacks(uchar *arr, int *sensors) {
     int count = 0;
-    int m = 30;
+    int m = 12;
     int ind[8];
     String s = "";
     for (int i = 0; i < 15; i += 2) {
@@ -93,8 +95,10 @@ String findBlacks(uchar *arr, int *sensors) {
     }
     if (s.length() == 0) {
         s = "-1";
+        oob = true;
         interpretMode = true;
     } else {
+        oob = false;
         interpretMode = false;
     }
     return s;
@@ -106,7 +110,7 @@ bool calcFwd() {
 }
 
 // Function to Move Forward
-void move(int steps, float mspeed) {
+void move(int steps, float mspeed, bool correction) {
     counter_A = 0;  //  reset counter A to zero
     counter_B = 0;  //  reset counter B to zero
 
@@ -124,45 +128,70 @@ void move(int steps, float mspeed) {
 
     // Go forward until step value is reached
     bool turned = true;
-    while (steps > counter_A && steps > counter_B && turned) {
-       if(turnTriggerSet())
-          steps=0;
-       
-        bool fwd = calcFwd();
+    bool fwd = calcFwd();
+
+
+    while (steps > counter_A && steps > counter_B) {
+        /*if (turnTriggerSet())
+            steps = 30;
+*/
         if (fwd) {
             lms = mspeed;
             rms = mspeed;
             // Set Motor A and B forward
         }
+        if (correction && !turnTriggerSet()) {
+            if ((isActive(0) || isActive(2)) && !fwd) {
+                turn(5);
+                steps = 0;
+                Serial.println("Correction");
 
-        //correct itself moving  right
-        if ((isActive(0) || isActive(2)) && !fwd) {
-            turn(25);
-            fwd = calcFwd();
-            steps=0;
-        }
-        if ((isActive(12) || isActive(14)) && !fwd) {
-            turn(-25);
-            fwd = calcFwd();
-            steps=0;
-        }
-       
+                fwd = calcFwd();
+            }
+            if ((isActive(12) || isActive(14)) && !fwd) {
+                turn(-5);
+                Serial.println("Correction");
+                steps = 0;
 
-        if (steps > counter_A) {
-            analogWrite(enA, rms);
-        } else {
-            analogWrite(enA, 0);
+                fwd = calcFwd();
+            }
+
         }
-        if (steps > counter_B) {
-            analogWrite(enB, lms);
-        } else {
-            analogWrite(enB, 0);
+
+        if (disableMotors) {
+
+            if (steps > counter_A) {
+                analogWrite(enA, rms);
+            } else {
+                analogWrite(enA, 0);
+            }
+            if (steps > counter_B) {
+                analogWrite(enB, lms);
+            } else {
+                analogWrite(enB, 0);
+            }
         }
     }
 
+/*
+    if (correction) {
+        //correct itself moving  right
+        if ((isActive(0) || isActive(2)) && !fwd) {
+            turn(5);
+            fwd = calcFwd();
+        }
+        if ((isActive(12) || isActive(14)) && !fwd) {
+            turn(-5);
+            fwd = calcFwd();
+        }
+    }
+    */
     // Stop when done
-    analogWrite(enA, 0);
-    analogWrite(enB, 0);
+    if (disableMotors) {
+
+        analogWrite(enA, 0);
+        analogWrite(enB, 0);
+    }
     counter_A = 0;  //  reset counter A to zero
     counter_B = 0;  //  reset counter B to zero 
 }
@@ -183,7 +212,7 @@ void turn(float theta) {
     counter_A = 0;  //  reset counter A to zero
     counter_B = 0;  //  reset counter B to zero
 
-    int mspeed = 255;
+    int mspeed = 200;
 
     float scale = abs((theta / 360) * (200));
     int steps = (int) scale;
@@ -208,24 +237,27 @@ void turn(float theta) {
     }
     // Go forward until step value is reached
     while (steps > counter_A && steps > counter_B) {
-       
-        if (steps > counter_A) {
-            analogWrite(enA, rms);
-        } else {
-            analogWrite(enA, 0);
-        }
-        if (steps > counter_B) {
-            analogWrite(enB, lms);
-        } else {
-            analogWrite(enB, 0);
+        if (disableMotors) {
+
+            if (steps > counter_A) {
+                analogWrite(enA, rms);
+            } else {
+                analogWrite(enA, 0);
+            }
+            if (steps > counter_B) {
+                analogWrite(enB, lms);
+            } else {
+                analogWrite(enB, 0);
+            }
         }
     }
-    
-    // Stop when done
+
+// Stop when done
     analogWrite(enA, 0);
     analogWrite(enB, 0);
     counter_A = 0;  //  reset counter A to zero
     counter_B = 0;  //  reset counter B to zero 
+    Serial.println("turning");
 }
 
 float turnLen(float theta) {
@@ -233,31 +265,44 @@ float turnLen(float theta) {
     return abs((theta / 360) * cw);
 }
 
+
 void square(bool left) {
+    if (oob) {
+              Serial.println("OOB");
+
+        turn(-20);
+       findBlacks(data, sensors);
+       delay(100);
+       oob=false;
+ }else{
     if (turnTriggerSet()) {
-        turn(-90);
+        Serial.println("turn");
+        turn(-70);
+        move(10, 150, true);
+
 
     } else {
-        move(20, 255);
+        move(20, 150, true);
     }
+ }
 }
 
 bool turnTriggerSet() {
-    bool a = isActive(8) && isActive(10) && isActive(12) && isActive(14);
-    bool b = isActive(0) && isActive(2) && isActive(4) && isActive(6);
-    /*Serial.print(a);
+    bool a = isActive(10) && isActive(12) && isActive(14);
+    bool b = isActive(0) && isActive(2) && isActive(4);
+    /*Serial.print(b);
     Serial.print(" ");
-        Serial.print(b);
+    Serial.print(a);
     Serial.println();*/
-    return  a || b;
-    
+    return a || b;
+
 }
 
-void loop() {
-    for (int i = 0; i < 8; i++) {
-        sensors[i] = -1;
-    }
+bool first = true;
+
+void pullData() {
     Wire.requestFrom(9, 16);    // request 16 bytes from slave device #9
+
     while (Wire.available()) // slave may send less than requested
     {
         data[t] = Wire.read(); // receive a byte as character
@@ -266,14 +311,29 @@ void loop() {
         else
             t = 0;
     }
+}
+
+void loop() {
+    for (int i = 0; i < 8; i++) {
+        sensors[i] = -1;
+    }
+    if (first) {
+        delay(1000);
+
+        pullData();
+        first = false;
+        delay(1000);
+    }
+    pullData();
     String bl = findBlacks(data, sensors);
     Serial.print(bl);
-    Serial.print(" ");
-    //Serial.print(isLine());
+    //printSensorLog(data);
+    //Serial.print(" ");
+    //Serial.print(turnTriggerSet());
     Serial.println("");
     checkPerp();
-    
+    //delay(1000);
     square(true);
     //Serial.println();
-    
+
 }

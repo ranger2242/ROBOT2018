@@ -33,6 +33,15 @@ int CMtoSteps(float cm) {
 
 }
 
+bool outOfBounds(){
+  bool b=true;
+   for (int i = 0; i < 8; i++) {
+        if (-1 != sensors[i])
+            b=false;
+    }
+    return b;
+}
+
 //which sensor detect black
 bool isActive(int val) {
     for (int i = 0; i < 8; i++) {
@@ -42,8 +51,27 @@ bool isActive(int val) {
     return false;
 }
 
-void printSensorLog() {
-    /*  Serial.print("data[0]:");
+void printSensorLogOdd(uchar *data) {
+      Serial.print("data[1]:");
+     Serial.println(data[1]);
+     Serial.print("data[3]:");
+     Serial.println(data[3]);
+     Serial.print("data[5]:");
+     Serial.println(data[5]);
+     Serial.print("data[7]:");
+     Serial.println(data[7]);
+     Serial.print("data[9]:");
+     Serial.println(data[9]);
+     Serial.print("data[11]:");
+     Serial.println(data[11]);
+     Serial.print("data[13]:");
+     Serial.println(data[13]);
+     Serial.print("data[15]:");
+     Serial.println(data[15]);
+}
+
+void printSensorLog(uchar *data) {
+      Serial.print("data[0]:");
      Serial.println(data[0]);
      Serial.print("data[2]:");
      Serial.println(data[2]);
@@ -58,7 +86,7 @@ void printSensorLog() {
      Serial.print("data[12]:");
      Serial.println(data[12]);
      Serial.print("data[14]:");
-     Serial.println(data[14]);*/
+     Serial.println(data[14]);
 }
 
 bool isLine(){
