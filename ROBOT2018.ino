@@ -40,7 +40,6 @@ volatile int counter_A = 0;
 volatile int counter_B = 0;
 
 bool startMode = true;
-bool turnTrigger = false;
 bool interpretMode = false;
 
 int perpCount = 0;
@@ -126,7 +125,9 @@ void move(int steps, float mspeed) {
     // Go forward until step value is reached
     bool turned = true;
     while (steps > counter_A && steps > counter_B && turned) {
-
+       if(turnTriggerSet())
+          steps=0;
+       
         bool fwd = calcFwd();
         if (fwd) {
             lms = mspeed;
@@ -134,20 +135,18 @@ void move(int steps, float mspeed) {
             // Set Motor A and B forward
         }
 
-        /*//correct itself moving  right
+        //correct itself moving  right
         if ((isActive(0) || isActive(2)) && !fwd) {
-            turn(34);
+            turn(25);
             fwd = calcFwd();
-            turned = false;
-            delay(1000);
+            steps=0;
         }
         if ((isActive(12) || isActive(14)) && !fwd) {
-            turn(-34);
+            turn(-25);
             fwd = calcFwd();
-            turned = false;
-            delay(1000);
+            steps=0;
         }
-       */
+       
 
         if (steps > counter_A) {
             analogWrite(enA, rms);
@@ -207,10 +206,8 @@ void turn(float theta) {
         digitalWrite(in3, LOW);
         digitalWrite(in4, HIGH);
     }
-    bool turning=false;
     // Go forward until step value is reached
-    while (steps > counter_A && steps > counter_B && !turning) {
-        turning= turnTriggerSet();
+    while (steps > counter_A && steps > counter_B) {
        
         if (steps > counter_A) {
             analogWrite(enA, rms);
@@ -237,7 +234,7 @@ float turnLen(float theta) {
 }
 
 void square(bool left) {
-    if (turnTrigger) {
+    if (turnTriggerSet()) {
         turn(-90);
 
     } else {
@@ -246,9 +243,14 @@ void square(bool left) {
 }
 
 bool turnTriggerSet() {
-    bool a =  isActive(10) && isActive(12) && isActive(14);
-    bool b = isActive(0) && isActive(2) && isActive(4);
-    return turnTrigger = a || b;
+    bool a = isActive(8) && isActive(10) && isActive(12) && isActive(14);
+    bool b = isActive(0) && isActive(2) && isActive(4) && isActive(6);
+    /*Serial.print(a);
+    Serial.print(" ");
+        Serial.print(b);
+    Serial.println();*/
+    return  a || b;
+    
 }
 
 void loop() {
@@ -270,5 +272,8 @@ void loop() {
     //Serial.print(isLine());
     Serial.println("");
     checkPerp();
+    
     square(true);
+    //Serial.println();
+    
 }
