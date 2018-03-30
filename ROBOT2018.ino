@@ -7,7 +7,7 @@
 #include <Wire.h>
 #include<String.h>
 #include <math.h>
-#include <functions.h>
+#include "functions.h"
 
 #define uchar unsigned char
 
@@ -41,10 +41,9 @@ volatile int counter_B = 0;
 
 bool startMode = true;
 bool turnTrigger = false;
-bool interpretMode= false;
+bool interpretMode = false;
 
 int perpCount = 0;
-
 
 
 // Interrupt Service Routines  
@@ -93,22 +92,20 @@ String findBlacks(uchar *arr, int *sensors) {
             count++;
         }
     }
-    if(s.length()==0){
-      s="-1";
-      interpretMode=true;
-    }else{
-      interpretMode=false;
+    if (s.length() == 0) {
+        s = "-1";
+        interpretMode = true;
+    } else {
+        interpretMode = false;
     }
     return s;
 }
 
 
-
-
-
-bool calcFwd(){
-  return isActive(6) || isActive(8) || isActive(10) || isActive(4);
+bool calcFwd() {
+    return isActive(6) || isActive(8) || isActive(10) || isActive(4);
 }
+
 // Function to Move Forward
 void move(int steps, float mspeed) {
     counter_A = 0;  //  reset counter A to zero
@@ -127,30 +124,31 @@ void move(int steps, float mspeed) {
     digitalWrite(in4, HIGH);
 
     // Go forward until step value is reached
-    bool turned =true;
+    bool turned = true;
     while (steps > counter_A && steps > counter_B && turned) {
 
-        bool fwd=calcFwd();
+        bool fwd = calcFwd();
         if (fwd) {
             lms = mspeed;
             rms = mspeed;
             // Set Motor A and B forward
         }
-        
-        //correct itself moving  right
-        if ((isActive(0) || isActive(2)  ) && !fwd) {
-          turn(34);
-           fwd=calcFwd();
-           turned=false;
-          delay(1000);
+
+        /*//correct itself moving  right
+        if ((isActive(0) || isActive(2)) && !fwd) {
+            turn(34);
+            fwd = calcFwd();
+            turned = false;
+            delay(1000);
         }
-        if ((isActive(12) || isActive(14) ) &&  !fwd) {
-          turn(-34);
-           fwd=calcFwd();
-           turned=false;
-          delay(1000);
+        if ((isActive(12) || isActive(14)) && !fwd) {
+            turn(-34);
+            fwd = calcFwd();
+            turned = false;
+            delay(1000);
         }
-        
+       */
+
         if (steps > counter_A) {
             analogWrite(enA, rms);
         } else {
@@ -209,9 +207,11 @@ void turn(float theta) {
         digitalWrite(in3, LOW);
         digitalWrite(in4, HIGH);
     }
-
+    bool turning=false;
     // Go forward until step value is reached
-    while (steps > counter_A && steps > counter_B) {
+    while (steps > counter_A && steps > counter_B && !turning) {
+        turning= turnTriggerSet();
+       
         if (steps > counter_A) {
             analogWrite(enA, rms);
         } else {
@@ -223,7 +223,7 @@ void turn(float theta) {
             analogWrite(enB, 0);
         }
     }
-
+    
     // Stop when done
     analogWrite(enA, 0);
     analogWrite(enB, 0);
@@ -237,15 +237,19 @@ float turnLen(float theta) {
 }
 
 void square(bool left) {
-      if(isLine()){
-        move(30, 255);
-      }
-      else{
+    if (turnTrigger) {
         turn(-90);
-      }
+
+    } else {
+        move(20, 255);
+    }
 }
 
-
+bool turnTriggerSet() {
+    bool a =  isActive(10) && isActive(12) && isActive(14);
+    bool b = isActive(0) && isActive(2) && isActive(4);
+    return turnTrigger = a || b;
+}
 
 void loop() {
     for (int i = 0; i < 8; i++) {
@@ -268,4 +272,3 @@ void loop() {
     checkPerp();
     square(true);
 }
-
