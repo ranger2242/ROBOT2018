@@ -1,4 +1,4 @@
-int sensors[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
+int sensors[8] = {6, 8, -1, -1, -1, -1, -1, -1};
 
 #define uchar unsigned char
 
@@ -68,6 +68,10 @@ void printSensorLogOdd(uchar *data) {
      Serial.println(data[13]);
      Serial.print("data[15]:");
      Serial.println(data[15]);
+          Serial.println("");
+
+     delay(1000);
+
 }
 
 void printSensorLog(uchar *data) {
@@ -87,6 +91,8 @@ void printSensorLog(uchar *data) {
      Serial.println(data[12]);
      Serial.print("data[14]:");
      Serial.println(data[14]);
+     Serial.println("");
+     delay(1000);
 }
 
 bool isLine(){

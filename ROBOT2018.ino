@@ -43,9 +43,16 @@ bool startMode = true;
 bool interpretMode = false;
 bool disableMotors = true;
 bool oob = false;
+bool leftTurn = false;
+bool rightTurn = false;
 
+int turnDir=1;
 int perpCount = 0;
+long actTimes[] = {0, 0, 0, 0, 0, 0, 0, 0};
+long lastTurnTime=0;
+long currentTurnTime=0;
 
+int turnCnt = 0;
 
 // Interrupt Service Routines  
 // Motor A pulse count ISR
@@ -82,12 +89,21 @@ void setup() {
 //FIND 
 String findBlacks(uchar *arr, int *sensors) {
     int count = 0;
-    int m = 12;
+    int m = 10;
     int ind[8];
     String s = "";
-    for (int i = 0; i < 15; i += 2) {
+//check last active sensor
+    interpretMode=false;
+    for(int i=0;i<8;i++){
+        if(sensors[i]==6 || sensors[8]){
+          interpretMode=true;
+        }
+    }
+    
+    for (int i = 0; i < 16; i += 2) {
         int a = arr[i];
         if (a < m) {
+            actTimes[i / 2] = millis();
             s = s + " " + String(i);
             sensors[count] = i;
             count++;
@@ -96,17 +112,15 @@ String findBlacks(uchar *arr, int *sensors) {
     if (s.length() == 0) {
         s = "-1";
         oob = true;
-        interpretMode = true;
     } else {
         oob = false;
-        interpretMode = false;
     }
     return s;
 }
 
 
 bool calcFwd() {
-    return isActive(6) || isActive(8) || isActive(10) || isActive(4);
+    return isActive(6) || isActive(8) ||interpretMode;
 }
 
 // Function to Move Forward
@@ -132,28 +146,36 @@ void move(int steps, float mspeed, bool correction) {
 
 
     while (steps > counter_A && steps > counter_B) {
-        /*if (turnTriggerSet())
-            steps = 30;
-*/
         if (fwd) {
             lms = mspeed;
             rms = mspeed;
             // Set Motor A and B forward
         }
-        if (correction && !turnTriggerSet()) {
-            if ((isActive(0) || isActive(2)) && !fwd) {
-                turn(5);
+        int cor=8;
+        if (correction && !(leftTriggerSet() || rightTriggerSet())) {
+            if ((isActive(0) || isActive(2) || isActive(4)) && !fwd) {
+   
+                turn(cor);
                 steps = 0;
-                Serial.println("Correction");
+                Serial.println("Correction left");
 
                 fwd = calcFwd();
             }
-            if ((isActive(12) || isActive(14)) && !fwd) {
-                turn(-5);
-                Serial.println("Correction");
+            if ((isActive(12) || isActive(14)|| isActive(10)) && !fwd) {
+                turn(-cor);
+                Serial.println("Correction right");
                 steps = 0;
 
                 fwd = calcFwd();
+            }
+
+            if(isActive(6) && isActive(8) && (isActive(4) || isActive(10))){
+              turn(45*turnDir);
+                              steps = 0;
+                fwd = calcFwd();
+                Serial.println(turnDir == 1? "CORNER left " : "CORNER right ");
+
+
             }
 
         }
@@ -172,20 +194,6 @@ void move(int steps, float mspeed, bool correction) {
             }
         }
     }
-
-/*
-    if (correction) {
-        //correct itself moving  right
-        if ((isActive(0) || isActive(2)) && !fwd) {
-            turn(5);
-            fwd = calcFwd();
-        }
-        if ((isActive(12) || isActive(14)) && !fwd) {
-            turn(-5);
-            fwd = calcFwd();
-        }
-    }
-    */
     // Stop when done
     if (disableMotors) {
 
@@ -196,15 +204,24 @@ void move(int steps, float mspeed, bool correction) {
     counter_B = 0;  //  reset counter B to zero 
 }
 
-void checkPerp() {
-    bool a = true;
-    for (int i = 0; i < 8; i++) {
-        if (sensors[i] == -1) {
-            a = false;
+bool checkPerp() {
+    bool a = false;
+    long left = actTimes[0] - actTimes[7];
+    long right = actTimes[7] - actTimes[0];
+
+    int thr = 1000;
+    if (abs(left) < thr || abs(right) < thr) {
+        a = true;
+        Serial.println("PERP");
+        int n = thr + 1;
+        printActTimes();
+        for (int i = 0; i < 8; i++) {
+
+            actTimes[i] = 0;
         }
+        actTimes[0] = n;
     }
-    if (a)
-        perpCount++;
+    return a;
 }
 
 
@@ -257,7 +274,10 @@ void turn(float theta) {
     analogWrite(enB, 0);
     counter_A = 0;  //  reset counter A to zero
     counter_B = 0;  //  reset counter B to zero 
-    Serial.println("turning");
+    Serial.print("turning ");
+    Serial.println(turnCnt);
+
+
 }
 
 float turnLen(float theta) {
@@ -267,38 +287,70 @@ float turnLen(float theta) {
 
 
 void square(bool left) {
-    if (oob) {
-              Serial.println("OOB");
-
-        turn(-20);
-       findBlacks(data, sensors);
-       delay(100);
-       oob=false;
- }else{
-    if (turnTriggerSet()) {
-        Serial.println("turn");
-        turn(-70);
-        move(10, 150, true);
-
-
+    turnDir= turnCnt % 4 == 3 ? -1 : 1;
+    //dir= dir * (left ?  1 : -1);
+    if (oob && !interpretMode) {
+        Serial.println(turnDir == 1? "left OOB" : "right OOB");
+        turn(20 * turnDir);
+        findBlacks(data, sensors);
     } else {
-        move(20, 150, true);
+        if (left ? leftTriggerSet() : rightTriggerSet()) {
+            if (turnCnt < 4) {
+               int thr=400;
+                currentTurnTime=millis();
+                long diff=currentTurnTime-lastTurnTime;
+                if(diff >= thr){
+                Serial.println("_______________________________________________");
+                turnCnt++;
+                Serial.print(diff);
+                Serial.print(" ");
+
+                Serial.println(turnDir == 1? "left " : "right ");
+                turn((turnCnt %4 ==3 ? 40:80) * turnDir);
+                move(5, 150, true);
+                lastTurnTime=currentTurnTime;
+                }
+            }
+        } else {
+            move(10, 130, true);
+        }
     }
- }
+
 }
 
-bool turnTriggerSet() {
-    bool a = isActive(10) && isActive(12) && isActive(14);
-    bool b = isActive(0) && isActive(2) && isActive(4);
-    /*Serial.print(b);
-    Serial.print(" ");
-    Serial.print(a);
-    Serial.println();*/
-    return a || b;
+
+bool rightTriggerSet() {
+
+  
+    bool a = isActive(14) && isActive(12) && isActive(10);
+    rightTurn = a;
+    if (a)
+    Serial.println("SIGNAL RIGHT");
+    return a;
+}
+
+bool leftTriggerSet() {
+
+  
+    bool a = isActive(0)&& isActive(2) && isActive(4);
+    leftTurn = a;
+    if (a)
+    Serial.println("SIGNAL LEFT");
+        
+    return a;
 
 }
 
 bool first = true;
+
+void printActTimes() {
+    for (int i = 0; i < 8; i++) {
+        Serial.print(actTimes[i]);
+        Serial.print(" ");
+    }
+    Serial.println("");
+
+}
 
 void pullData() {
     Wire.requestFrom(9, 16);    // request 16 bytes from slave device #9
@@ -326,13 +378,13 @@ void loop() {
     }
     pullData();
     String bl = findBlacks(data, sensors);
-    Serial.print(bl);
+    // printActTimes();
+    Serial.println(bl);
     //printSensorLog(data);
     //Serial.print(" ");
     //Serial.print(turnTriggerSet());
-    Serial.println("");
-    checkPerp();
-    //delay(1000);
+    //Serial.println("");
+    //      delay(1000);
     square(true);
     //Serial.println();
 
